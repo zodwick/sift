@@ -1,8 +1,171 @@
-Hi, we are trying to create a utility which will help me clean up folders of photos and videos locally.
+Sift — Photo & Video Triage Tool
+==================================
 
-Basically the problem is that I travelled to Thailand last week and I have like 5,000 photos. A lot of these photos are very similar. Some of these are just me pressing the camera button a bunch of times. I want to clean this up and just be organised a little bit 
+A native macOS app for quickly triaging large photo/video collections.
+Built for occasional use after trips or shoots where you end up with
+thousands of similar shots that need culling.
 
-If you look into my pictures directory, there is a Thailand folder ( /Users/zodwick/Pictures/thailand_2026 ) in that which contains photos I have copied over from both my friend's phone and my phone. The data types might be a little bit mixed but I think it should be more or less fine 
+Primary use case: ~3,600 files (photos + videos) in
+/Users/zodwick/Pictures/thailand_2026 from two different phones.
 
-- needs to be fast ( we should choose the stack we build on accordingly )
-- should have good ux (decent looks) and possibly keyboard support natively
+
+Platform & Distribution
+-----------------------
+- Native macOS app built with Swift / SwiftUI
+- Distributed as build-from-source (no code signing, no App Store)
+- Launch via CLI: `sift ~/Pictures/thailand_2026`
+- If launched without arguments, show a native folder picker dialog
+- Single-window application
+
+
+Triage Model
+------------
+- All photos start as UNDECIDED. Undecided = rejected.
+- The user's job is to mark photos to KEEP. Everything not explicitly
+  kept will be rejected.
+- Live mode: files are moved to `_rejected/` immediately on reject.
+  No separate "apply" step.
+- Undo reverses the file move and jumps back to the photo.
+- Undo depth: last 50 actions.
+- Star ratings (1-5) can be assigned to kept photos. Ratings are stored
+  in the session file only (no EXIF writes, no subfolder moves).
+- After keep/reject, auto-advance to the next photo sequentially
+  (not skipping already-decided photos).
+
+
+Supported Formats
+-----------------
+Photos: JPEG, HEIC/HEIF, PNG, WebP, RAW (CR2, ARW, NEF, DNG)
+Videos: MOV, MP4 — shown in filmstrip, playable in preview area
+Corrupted/unreadable files: show a broken-image placeholder in the
+  filmstrip. User can reject them to clean up.
+
+
+Sorting & Indexing
+------------------
+- Sort all files chronologically by EXIF DateTimeOriginal.
+  Fallback to file modification time if EXIF is missing.
+- Photos from multiple devices are interleaved by timestamp.
+  No special handling for device clock drift.
+- Scan scope: the target folder + `_rejected/` subfolder.
+  Other subfolders are ignored.
+- Indexing blocks the UI with a progress bar. Review begins only
+  after all files are indexed.
+- Thumbnails are generated in-memory only (no disk cache).
+  Re-indexing is required on each launch.
+
+
+Window Layout
+-------------
+Single window, dark gray background (~#1a1a1a).
+
+  +--------------------------------------------------+
+  |  [minimal metadata: filename, date]    [progress] |
+  |                                                    |
+  |                                                    |
+  |              Main Preview Area                     |
+  |          (high-quality ~2000px preview)             |
+  |           best-fit / contain scaling               |
+  |                                                    |
+  |                                                    |
+  +--------------------------------------------------+
+  | [ ] [ ] [ ] [*selected*] [ ] [ ] [ ] [ ] [ ] [ ] |
+  |              Filmstrip (~15-20 thumbs)             |
+  +--------------------------------------------------+
+
+- Main preview: high-quality resized preview (~2000px on longest edge).
+  Full resolution loaded only on explicit zoom.
+- Filmstrip: ~15-20 medium thumbnails visible at once.
+  Auto-scrolls to center the selected photo.
+- Visual feedback on thumbnails:
+    Green border = kept
+    Red border   = rejected
+    No border    = undecided
+- Progress counter always visible:
+    "847 / 3,067  |  423 kept  312 rejected  2,332 remaining"
+- Minimal metadata always visible: filename and capture date.
+- Window size and position remembered between launches.
+
+
+Video Handling
+--------------
+- Videos appear in the filmstrip alongside photos (sorted by timestamp).
+- When a video is selected, the preview shows the first frame as a still.
+- Press Space or Enter to play/pause. No auto-play.
+- Videos can be kept/rejected like photos.
+
+
+Keyboard Shortcuts (Vim-style primary)
+--------------------------------------
+  h / Left arrow    Previous photo
+  l / Right arrow   Next photo
+  k                 Keep (mark kept, advance to next)
+  j                 Reject (move to _rejected/, advance to next)
+  z                 Undo last action (jump back to that photo)
+  1-5               Star rating on a kept photo
+  Space / Enter     Play/pause video
+  f                 Toggle zoom (fit vs full-resolution)
+  ?                 Show keyboard help overlay
+
+Arrow keys work for navigation alongside h/l.
+
+
+Trackpad Gestures
+-----------------
+- Pinch to zoom on the preview image.
+- Swipe left/right to navigate between photos.
+
+
+Native macOS Features
+---------------------
+- Quick Look integration: system Quick Look available for photos.
+- Trackpad gesture support (pinch, swipe).
+- Window state persistence (NSWindow restoration).
+
+
+File Operations
+---------------
+- Rejected files are moved to `_rejected/` inside the photo folder
+  (e.g., thailand_2026/_rejected/).
+- Moves happen immediately on reject (live mode).
+- Undo moves the file back to its original location.
+- Files are never deleted. Recovery is always possible from _rejected/.
+- The `_rejected/` folder is created on first reject if it doesn't exist.
+
+
+Session & Persistence
+---------------------
+- Session state saved to `.sift_session.json` inside the photo folder.
+- Session stores: per-file decisions (keep/reject/undecided), star
+  ratings, current position, and undo stack.
+- On re-open of a previously-triaged folder:
+    Show ALL photos including rejected ones, with their status intact.
+    User can change any decision.
+- Session file is updated continuously as decisions are made.
+
+
+Performance Targets
+-------------------
+- Scrubbing through filmstrip: preview updates in <150ms.
+- Smooth filmstrip scrolling with ~15-20 visible thumbnails.
+- Leverage native macOS frameworks for performance:
+    Core Image / ImageIO for image decoding and thumbnails
+    AVFoundation for video thumbnails and playback
+    Grand Central Dispatch for concurrent indexing
+
+
+Image Display
+-------------
+- Preview scaling: best-fit (contain). Dark gray letterboxing on
+  mismatched aspect ratios.
+- Zoom: toggle between fit-to-window and full-resolution via 'f' key
+  or pinch gesture.
+- Corrupted files: broken-image placeholder in both filmstrip and preview.
+
+
+Error Handling
+--------------
+- Corrupted/unreadable files get a placeholder, remain triageable.
+- If a file move fails (permissions, disk full), show an inline error
+  and keep the photo in its current state.
+- Session file write failures should warn but not block the workflow.
