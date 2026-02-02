@@ -1,8 +1,407 @@
-Hi, we are trying to create a utility which will help me clean up folders of photos and videos locally.
+# PhotoClean — Photo Deduplication & Triage Tool
+## Full Specification
 
-Basically the problem is that I travelled to Thailand last week and I have like 5,000 photos. A lot of these photos are very similar. Some of these are just me pressing the camera button a bunch of times. I want to clean this up and just be organised a little bit 
+---
 
-If you look into my pictures directory, there is a Thailand folder ( /Users/zodwick/Pictures/thailand_2026 ) in that which contains photos I have copied over from both my friend's phone and my phone. The data types might be a little bit mixed but I think it should be more or less fine 
+## 1. Problem Statement
 
-- needs to be fast ( we should choose the stack we build on accordingly )
-- should have good ux (decent looks) and possibly keyboard support natively
+After a trip (e.g., Thailand, 5,000+ photos), a photographer ends up with thousands of
+photos from multiple devices (own phone + friends' phones). Many are near-duplicates:
+burst shots, slightly different angles, retakes. Manually sorting through them is tedious.
+
+PhotoClean is a **reusable local tool** that indexes a directory of photos, groups similar
+ones together, and provides a fast keyboard-driven review UI to keep or reject photos.
+
+---
+
+## 2. Core Workflow
+
+```
+photoclean <directory>
+    |
+    v
+[1. Upfront Index Scan]  -- Extract EXIF, generate thumbnails, compute perceptual hashes
+    |
+    v
+[2. Grouping]            -- Cluster similar photos by time + visual similarity
+    |
+    v
+[3. Review UI]           -- Web-based triage interface (auto-opens in browser)
+    |                        - Group review (side-by-side compare)
+    |                        - Singleton review (quick keep/reject)
+    |
+    v
+[4. Summary & Confirm]   -- Show stats, confirm before moving files
+    |
+    v
+[5. Execute]             -- Move rejected photos to _rejected/ folder
+```
+
+---
+
+## 3. Grouping Algorithm
+
+### Strategy: Hybrid (Time + Visual Similarity)
+
+1. **Pre-filter by time**: Group photos taken within a **~30 second window** using EXIF
+   `DateTimeOriginal`. This catches bursts and cross-phone duplicates at the same scene.
+
+2. **Visual similarity refinement**: Within each time-based cluster, compute pairwise
+   perceptual hash distance. Split clusters where visual similarity is too low (different
+   subjects shot at the same time).
+
+3. **Cross-time visual matching**: After time-based grouping, run a second pass comparing
+   perceptual hashes across all remaining ungrouped photos to catch duplicates with
+   mismatched timestamps (clock drift between devices).
+
+### Perceptual Hashing: Multi-Hash Approach
+
+Compute **three** hashes per image and combine scores:
+- **aHash** (average hash) — fast, catches near-exact duplicates
+- **pHash** (perceptual hash) — handles exposure/color differences
+- **dHash** (difference hash) — good for structural similarity in burst shots
+
+Combined distance = weighted average of Hamming distances across all three hashes.
+
+### Threshold: Conservative
+
+Only group **near-identical** photos. Users will see more groups but fewer false matches
+(unrelated photos incorrectly grouped together). This is preferred over aggressive grouping
+that requires more manual correction.
+
+### Quality Auto-Ranking (Nice-to-Have)
+
+Within each group, rank photos by **sharpness** (Laplacian variance) to suggest the best
+candidate. This is a suggestion only — the user makes the final decision.
+
+---
+
+## 4. File Handling
+
+### Supported Formats
+- **Standard**: JPEG, HEIC/HEIF, PNG, WebP
+- **RAW**: CR2, ARW, NEF, DNG (via rawpy/libraw)
+- RAW files use their embedded JPEG preview for display and hashing
+
+### What Happens to Files
+- **Kept photos**: Left in place (original directory untouched)
+- **Rejected photos**: Moved to a `_rejected/` subfolder within the source directory
+- **Corrupted/unreadable files**: Skipped during indexing, logged to `_errors.log`
+
+### No Conversion
+Files are never converted or modified. The tool works with whatever formats exist.
+
+### Video Files
+Ignored entirely. This tool processes photos only.
+
+---
+
+## 5. UI Specification
+
+### Platform: Local Web App
+- Python backend serves API + static files
+- Frontend opens in the user's default browser
+- URL also printed to terminal for manual access
+
+### Theme: Dark Mode
+Dark background to avoid competing with photo content. No light mode toggle needed.
+
+### Layout: Review Screen
+
+```
++------------------------------------------------------------------+
+| PhotoClean                          Group 3/47  |  Progress: 12% |
++------------------------------------------------------------------+
+|                                                                    |
+|  +----------+  +----------+  +----------+  +----------+           |
+|  |          |  |          |  |          |  |          |  ------>   |
+|  |  thumb1  |  |  thumb2  |  |  thumb3  |  |  thumb4  |  scroll   |
+|  |          |  |          |  |          |  |          |           |
+|  +--[KEEP]--+  +--[    ]--+  +--[    ]--+  +--[KEEP]--+           |
+|                                                                    |
+|  +--------------------------------------------------------------+ |
+|  |                                                                | |
+|  |                    Large Preview (selected)                    | |
+|  |                                                                | |
+|  +--------------------------------------------------------------+ |
+|                                                                    |
+|  EXIF: Canon EOS R5 | 24mm f/2.8 | 2026-01-18 14:32 | 6000x4000 |
+|                                                                    |
+|  [J] Reject  [K] Keep  [Space] Next Group  [Z] Undo  [?] Help    |
++------------------------------------------------------------------+
+```
+
+### Thumbnail Strip (Top Section)
+- **Scrollable horizontal filmstrip** showing all photos in the current group
+- Masonry-style variable-size tiles respecting original aspect ratios
+- Selected photo highlighted with a border
+- Keep/reject state shown as overlay badge on each thumbnail
+- For groups with 1-4 photos: all visible without scrolling
+- For groups with 5+ photos: horizontal scroll with arrow indicators
+
+### Large Preview (Center)
+- Shows the currently selected photo at the largest size that fits
+- Maintains original aspect ratio (letterboxed on dark background)
+- **Toggle zoom**: Press a key to zoom to 100% crop for sharpness inspection
+  - Pan with mouse or arrow keys while zoomed
+  - Press again to return to fit-to-view
+
+### EXIF Info Bar
+- Displays below the preview: camera model, focal length, date/time, dimensions
+- Visible but unobtrusive
+
+### Singleton Review Mode
+For photos with no similar matches (~30-50% of collection):
+- Single photo displayed large
+- Simple keep or reject decision
+- Same keyboard shortcuts apply
+
+---
+
+## 6. Keyboard Shortcuts (Vim-Style)
+
+| Key | Action |
+|-----|--------|
+| `h` / `Left Arrow` | Select previous photo in group |
+| `l` / `Right Arrow` | Select next photo in group |
+| `k` | **Keep** the selected photo |
+| `j` | **Reject** the selected photo |
+| `Space` | Confirm group decisions and advance to next group |
+| `z` | **Undo** — go back to previous group and revise decisions |
+| `a` | **Keep all** photos in this group |
+| `x` | **Reject all** photos in this group |
+| `f` | Toggle **full-screen zoom** on selected photo |
+| `1-9` | Quick-keep the Nth photo in the group |
+| `?` | Show keyboard shortcut help overlay |
+| `Esc` | Exit zoom / close overlay |
+
+### Multi-Select
+Users can **keep multiple photos** from a group. Any photo not explicitly marked as "keep"
+is treated as rejected when the group is confirmed. The `a` (keep all) shortcut handles
+groups where everything is worth keeping.
+
+### Undo Queue
+All group decisions are pushed onto an undo stack. Pressing `z` pops the stack and returns
+to the previous group with its decisions restored for editing.
+
+---
+
+## 7. Session Persistence
+
+### Default: Full Resume
+- All indexing results and triage decisions are saved to a `.photoclean_session.json` file
+  in the source directory
+- On relaunch with the same directory, the tool detects the session file and offers:
+  - **Resume** — skip already-triaged groups, continue where you left off
+  - **Re-index** — re-scan files but preserve previous keep/reject decisions
+    (handles added/removed files between sessions)
+  - **Start fresh** — ignore previous session entirely
+
+### Session File Contents
+- Index data (hashes, EXIF, thumbnails path)
+- Group assignments
+- Per-photo keep/reject decisions
+- Current position in the review queue
+
+---
+
+## 8. Summary & Confirmation
+
+Before any files are moved, show a summary screen:
+
+```
++------------------------------------------+
+|           Triage Summary                  |
++------------------------------------------+
+|  Total photos scanned:     4,847         |
+|  Groups reviewed:             312         |
+|  Singletons reviewed:      2,104         |
+|                                           |
+|  Photos kept:              2,891         |
+|  Photos rejected:          1,956         |
+|  Disk space to free:       14.3 GB       |
+|                                           |
+|  [Confirm & Move]    [Go Back & Review]  |
++------------------------------------------+
+```
+
+The user must explicitly confirm before any files are moved to `_rejected/`.
+
+---
+
+## 9. EXIF Metadata Filtering
+
+The review UI includes filter controls to narrow which groups/photos are shown:
+
+- **By camera model** — e.g., show only photos from "iPhone 15 Pro" vs "Galaxy S24"
+- **By date range** — focus on a specific day of the trip
+- **By file type** — e.g., show only HEIC, only JPEG, only RAW
+
+Filters apply to the review queue. Filtered-out photos are not affected by triage decisions.
+
+---
+
+## 10. Indexing Progress UI
+
+During the upfront scan, the browser shows:
+
+- **Progress bar** at the top with percentage and file count (e.g., "2,341 / 5,000")
+- **Collapsible live log** below showing:
+  - Each file being processed
+  - Running stats: groups found so far, duplicates detected, errors skipped
+  - Format breakdown (X JPEG, Y HEIC, Z RAW)
+
+The review UI launches automatically once indexing completes.
+
+---
+
+## 11. Tech Stack
+
+### Backend: Python
+
+| Component | Library | Rationale |
+|-----------|---------|-----------|
+| Web framework | **FastAPI** | Async, fast, native WebSocket support for real-time progress updates |
+| ASGI server | **Uvicorn** | Production-grade, works with FastAPI |
+| Image loading | **pyvips** | 10x faster than Pillow for batch thumbnail generation, low memory |
+| HEIC support | **pillow-heif** | Enables HEIC/HEIF reading through Pillow/pyvips |
+| RAW support | **rawpy** | libraw wrapper, supports CR2/ARW/NEF/DNG |
+| Perceptual hashing | **imagehash** | Clean API, supports aHash/pHash/dHash, actively maintained |
+| EXIF extraction | **exifread** | Native HEIC + RAW support, no C dependencies |
+| Sharpness detection | **OpenCV (cv2)** | Laplacian variance for blur detection |
+| Concurrency | **multiprocessing** / **asyncio** | Parallel hash computation across CPU cores |
+
+### Frontend
+
+| Component | Choice | Rationale |
+|-----------|--------|-----------|
+| Framework | **Svelte + Vite** | Minimal boilerplate, reactive state management, tiny bundle, great keyboard event handling |
+| Styling | **Tailwind CSS** | Utility-first, easy dark mode, rapid UI development |
+| Image display | Native `<img>` + CSS Grid/Flexbox | Masonry layout via CSS, lazy loading for thumbnails |
+| State management | Svelte stores | Built-in reactivity for undo queue, group state, filter state |
+| WebSocket | Native WebSocket API | Real-time indexing progress updates from backend |
+
+### Data Flow
+
+```
+[Filesystem] --> [pyvips thumbnails] --> [/static/thumbs/]
+                                              |
+[Filesystem] --> [exifread metadata]  --> [SQLite / JSON session file]
+                                              |
+[Filesystem] --> [imagehash hashes]   --> [SQLite / JSON session file]
+                                              |
+                                     [FastAPI REST + WS API]
+                                              |
+                                     [Svelte Frontend in Browser]
+```
+
+---
+
+## 12. API Endpoints (Backend)
+
+```
+GET    /api/status              — Indexing progress / session state
+GET    /api/groups              — List all groups with summary info
+GET    /api/groups/:id          — Get group details (photos, hashes, EXIF)
+GET    /api/singletons          — List singleton photos
+GET    /api/photo/:id/thumb     — Serve thumbnail image
+GET    /api/photo/:id/full      — Serve full-resolution image
+GET    /api/photo/:id/meta      — Get EXIF metadata for a photo
+POST   /api/decisions           — Submit keep/reject decisions for a group
+POST   /api/undo                — Undo last group decision
+GET    /api/summary             — Get triage summary stats
+POST   /api/execute             — Confirm and execute file moves
+GET    /api/filters             — Get available filter values (cameras, dates, types)
+WS     /ws/progress             — Real-time indexing progress stream
+```
+
+---
+
+## 13. Directory Structure (Project)
+
+```
+photo_cleaner/
+  backend/
+    main.py                 — FastAPI app entry point
+    indexer.py              — Photo scanning, hashing, EXIF extraction
+    grouper.py              — Similarity grouping algorithm
+    session.py              — Session persistence (save/load/resume)
+    models.py               — Data models (Photo, Group, Decision)
+    api/
+      routes.py             — API route definitions
+      websocket.py          — WebSocket handlers for progress
+  frontend/
+    src/
+      App.svelte            — Root component
+      lib/
+        GroupReview.svelte   — Side-by-side group comparison view
+        SingletonReview.svelte — Single photo review
+        ThumbnailStrip.svelte  — Scrollable filmstrip
+        PhotoPreview.svelte    — Large preview with zoom
+        ExifBar.svelte         — Metadata display
+        Summary.svelte         — Final summary + confirm
+        ProgressScreen.svelte  — Indexing progress display
+        FilterBar.svelte       — Camera/date/type filters
+        KeyboardHelp.svelte    — Shortcut overlay
+      stores/
+        groups.js            — Group data + navigation state
+        decisions.js         — Keep/reject state + undo stack
+        filters.js           — Active filters
+      utils/
+        keyboard.js          — Keyboard shortcut handler
+        websocket.js         — WebSocket connection manager
+    vite.config.js
+    tailwind.config.js
+    package.json
+  requirements.txt
+  README.md
+```
+
+---
+
+## 14. Non-Goals (Explicitly Out of Scope)
+
+- Video deduplication or processing
+- Cloud sync or remote storage
+- AI-powered scene/face recognition
+- Batch renaming or file organization beyond keep/reject
+- Photo editing (crop, color correction, etc.)
+- Mobile app or remote access
+- File format conversion
+- Multi-user / collaborative review
+
+---
+
+## 15. Performance Targets
+
+| Operation | Target | Notes |
+|-----------|--------|-------|
+| Index 5,000 photos | Reasonable | Multi-hash + EXIF + thumbnails, parallelized across cores |
+| Thumbnail generation | ~50-100ms/photo | pyvips streaming architecture |
+| Group computation | < 10s for 5K photos | After hashes are computed |
+| UI responsiveness | < 100ms per interaction | Keyboard press to visual update |
+| Image serve (thumbnail) | < 50ms | Pre-generated, served from disk |
+| Image serve (full-res) | < 500ms | Direct file serve, browser handles rendering |
+
+---
+
+## 16. Error Handling
+
+- **Corrupted files**: Skip, log to `_errors.log`, continue indexing
+- **Unsupported formats**: Skip, log, continue
+- **Zero-byte files**: Skip, log, continue
+- **Permission errors**: Log warning, skip file
+- **Disk full during move**: Abort remaining moves, report which files were and weren't moved
+- **Browser disconnected**: Session state is persisted server-side; reconnecting resumes
+
+---
+
+## 17. Future Considerations (Not for v1)
+
+These are explicitly deferred but noted for potential future versions:
+- GPS/location-based grouping and map view
+- Face detection for people-based grouping
+- Adjustable similarity threshold slider in UI
+- Export report (CSV/JSON of all decisions)
+- Drag-and-drop reordering within groups
+- Side-by-side linked zoom (same region across photos)
