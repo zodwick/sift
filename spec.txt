@@ -1,0 +1,8 @@
+Hi, we are trying to create a utility which will help me clean up folders of photos and videos locally.
+
+Basically the problem is that I travelled to Thailand last week and I have like 5,000 photos. A lot of these photos are very similar. Some of these are just me pressing the camera button a bunch of times. I want to clean this up and just be organised a little bit 
+
+If you look into my pictures directory, there is a Thailand folder ( /Users/zodwick/Pictures/thailand_2026 ) in that which contains photos I have copied over from both my friend's phone and my phone. The data types might be a little bit mixed but I think it should be more or less fine 
+
+- needs to be fast ( we should choose the stack we build on accordingly )
+- should have good ux (decent looks) and possibly keyboard support natively
