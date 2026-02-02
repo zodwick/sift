@@ -1,4 +1,4 @@
-# PhotoClean — Photo Deduplication & Triage Tool
+# Sift — Photo Deduplication & Triage Tool
 ## Full Specification
 
 ---
@@ -9,7 +9,7 @@ After a trip (e.g., Thailand, 5,000+ photos), a photographer ends up with thousa
 photos from multiple devices (own phone + friends' phones). Many are near-duplicates:
 burst shots, slightly different angles, retakes. Manually sorting through them is tedious.
 
-PhotoClean is a **reusable local tool** that indexes a directory of photos, groups similar
+Sift is a **reusable local tool** that indexes a directory of photos, groups similar
 ones together, and provides a fast keyboard-driven review UI to keep or reject photos.
 
 ---
@@ -17,7 +17,7 @@ ones together, and provides a fast keyboard-driven review UI to keep or reject p
 ## 2. Core Workflow
 
 ```
-photoclean <directory>
+sift <directory>
     |
     v
 [1. Upfront Index Scan]  -- Extract EXIF, generate thumbnails, compute perceptual hashes
@@ -110,7 +110,7 @@ Dark background to avoid competing with photo content. No light mode toggle need
 
 ```
 +------------------------------------------------------------------+
-| PhotoClean                          Group 3/47  |  Progress: 12% |
+| Sift                          Group 3/47  |  Progress: 12% |
 +------------------------------------------------------------------+
 |                                                                    |
 |  +----------+  +----------+  +----------+  +----------+           |
@@ -189,7 +189,7 @@ to the previous group with its decisions restored for editing.
 ## 7. Session Persistence
 
 ### Default: Full Resume
-- All indexing results and triage decisions are saved to a `.photoclean_session.json` file
+- All indexing results and triage decisions are saved to a `.sift_session.json` file
   in the source directory
 - On relaunch with the same directory, the tool detects the session file and offers:
   - **Resume** — skip already-triaged groups, continue where you left off
@@ -320,7 +320,7 @@ WS     /ws/progress             — Real-time indexing progress stream
 ## 13. Directory Structure (Project)
 
 ```
-photo_cleaner/
+sift/
   backend/
     main.py                 — FastAPI app entry point
     indexer.py              — Photo scanning, hashing, EXIF extraction
