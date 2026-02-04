@@ -5,6 +5,8 @@ struct ContentView: View {
     @State private var isZoomed = false
     @State private var isPlaying = false
     @State private var showHelp = false
+    @State private var viewMode: ViewMode = .triage
+    @State private var galleryFilter: GalleryFilter = .all
 
     var body: some View {
         ZStack {
@@ -15,6 +17,8 @@ struct ContentView: View {
                 loadingView
             } else if engine.items.isEmpty {
                 emptyView
+            } else if viewMode == .gallery {
+                galleryContainerView
             } else {
                 triageView
             }
@@ -28,7 +32,9 @@ struct ContentView: View {
             engine: engine,
             isZoomed: $isZoomed,
             isPlaying: $isPlaying,
-            showHelp: $showHelp
+            showHelp: $showHelp,
+            viewMode: $viewMode,
+            galleryFilter: $galleryFilter
         ))
     }
 
@@ -126,10 +132,21 @@ struct ContentView: View {
 
             // Progress counter
             progressCounter
+
+            // View mode indicator
+            viewModeIndicator
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
         .background(Color(nsColor: NSColor(red: 0.08, green: 0.08, blue: 0.08, alpha: 1)))
+    }
+
+    private var viewModeIndicator: some View {
+        Image(systemName: viewMode == .triage ? "rectangle.split.1x2" : "square.grid.3x3")
+            .font(.system(size: 14))
+            .foregroundStyle(.secondary)
+            .padding(.leading, 12)
+            .help(viewMode == .triage ? "Triage view (g for gallery)" : "Gallery view (g for triage)")
     }
 
     @ViewBuilder
@@ -168,6 +185,18 @@ struct ContentView: View {
             .foregroundStyle(.secondary)
     }
 
+    // MARK: - Gallery
+
+    private var galleryContainerView: some View {
+        VStack(spacing: 0) {
+            topBar
+            GalleryView(engine: engine, filter: $galleryFilter) { index in
+                engine.goTo(index: index)
+                viewMode = .triage
+            }
+        }
+    }
+
     // MARK: - Help Overlay
 
     private var helpOverlay: some View {
@@ -188,9 +217,10 @@ struct ContentView: View {
                     shortcutRow("k", "Keep (mark kept, advance)")
                     shortcutRow("j", "Reject (move to _rejected/, advance)")
                     shortcutRow("z", "Undo last action")
-                    shortcutRow("1-5", "Star rating on kept photo")
+                    shortcutRow("1-5", "Star rating (triage) / filter (gallery)")
                     shortcutRow("Space / Enter", "Play/pause video")
                     shortcutRow("f", "Toggle zoom (fit vs full)")
+                    shortcutRow("g", "Toggle gallery / triage view")
                     shortcutRow("?", "Show/hide this help")
                 }
 

@@ -6,10 +6,12 @@ final class ThumbnailLoader {
     static let shared = ThumbnailLoader()
 
     private let thumbnailCache = NSCache<NSString, NSImage>()
+    private let galleryCache = NSCache<NSString, NSImage>()
     private let previewCache = NSCache<NSString, NSImage>()
 
     init() {
         thumbnailCache.countLimit = 500
+        galleryCache.countLimit = 200
         previewCache.countLimit = 20
     }
 
@@ -29,6 +31,26 @@ final class ThumbnailLoader {
 
         if let image = image {
             thumbnailCache.setObject(image, forKey: cacheKey)
+        }
+        return image
+    }
+
+    /// Generate a gallery thumbnail (~440px) for masonry grid — matches ~220pt columns at 2x Retina
+    func galleryThumbnail(for item: MediaItem, size: CGFloat = 440) async -> NSImage? {
+        let cacheKey = "\(item.id)_gallery" as NSString
+        if let cached = galleryCache.object(forKey: cacheKey) {
+            return cached
+        }
+
+        let image: NSImage?
+        if item.isVideo {
+            image = await videoThumbnail(url: item.url, size: size)
+        } else {
+            image = await imageThumbnail(url: item.url, size: size)
+        }
+
+        if let image = image {
+            galleryCache.setObject(image, forKey: cacheKey)
         }
         return image
     }

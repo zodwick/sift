@@ -6,6 +6,8 @@ struct KeyboardHandler: NSViewRepresentable {
     @Binding var isZoomed: Bool
     @Binding var isPlaying: Bool
     @Binding var showHelp: Bool
+    @Binding var viewMode: ViewMode
+    @Binding var galleryFilter: GalleryFilter
 
     func makeNSView(context: Context) -> KeyCaptureView {
         let view = KeyCaptureView()
@@ -38,10 +40,10 @@ struct KeyboardHandler: NSViewRepresentable {
             engine.goToNext()
             return
         case 36: // Enter/Return
-            toggleVideoPlayback()
+            if viewMode == .triage { toggleVideoPlayback() }
             return
         case 49: // Space
-            toggleVideoPlayback()
+            if viewMode == .triage { toggleVideoPlayback() }
             return
         default:
             break
@@ -50,6 +52,8 @@ struct KeyboardHandler: NSViewRepresentable {
         guard let char = chars.first else { return }
 
         switch char {
+        case "g":
+            viewMode = viewMode == .triage ? .gallery : .triage
         case "h":
             engine.goToPrevious()
         case "l":
@@ -63,17 +67,21 @@ struct KeyboardHandler: NSViewRepresentable {
         case "z":
             engine.undo()
         case "f":
-            isZoomed.toggle()
+            if viewMode == .triage { isZoomed.toggle() }
         case "?":
             showHelp.toggle()
         case "1":
-            engine.setRating(1)
+            if viewMode == .gallery { galleryFilter = .all }
+            else { engine.setRating(1) }
         case "2":
-            engine.setRating(2)
+            if viewMode == .gallery { galleryFilter = .undecided }
+            else { engine.setRating(2) }
         case "3":
-            engine.setRating(3)
+            if viewMode == .gallery { galleryFilter = .kept }
+            else { engine.setRating(3) }
         case "4":
-            engine.setRating(4)
+            if viewMode == .gallery { galleryFilter = .rejected }
+            else { engine.setRating(4) }
         case "5":
             engine.setRating(5)
         default:
@@ -105,7 +113,7 @@ class KeyCaptureView: NSView {
     // Suppress the system beep for unhandled keys
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         let chars = event.charactersIgnoringModifiers ?? ""
-        let handled = "hlkjzf?12345"
+        let handled = "ghlkjzf?12345"
         if let char = chars.first, handled.contains(char) {
             return true
         }

@@ -2,6 +2,28 @@ import Foundation
 import AppKit
 import Observation
 
+// MARK: - View Mode
+
+enum ViewMode {
+    case triage
+    case gallery
+}
+
+// MARK: - Gallery Filter
+
+enum GalleryFilter: CaseIterable {
+    case all, undecided, kept, rejected
+
+    var label: String {
+        switch self {
+        case .all: return "All"
+        case .undecided: return "Undecided"
+        case .kept: return "Kept"
+        case .rejected: return "Rejected"
+        }
+    }
+}
+
 // MARK: - Decision
 
 enum Decision: String, Codable {
@@ -18,6 +40,7 @@ final class MediaItem: Identifiable {
     var url: URL
     let captureDate: Date
     let isVideo: Bool
+    let aspectRatio: CGFloat // width / height, default 1.0
 
     var decision: Decision = .undecided
     var starRating: Int = 0 // 0 = unrated, 1-5
@@ -30,11 +53,12 @@ final class MediaItem: Identifiable {
     /// Original filename
     var filename: String { url.lastPathComponent }
 
-    init(url: URL, captureDate: Date, isVideo: Bool, id: String) {
+    init(url: URL, captureDate: Date, isVideo: Bool, id: String, aspectRatio: CGFloat = 1.0) {
         self.url = url
         self.captureDate = captureDate
         self.isVideo = isVideo
         self.id = id
+        self.aspectRatio = aspectRatio
     }
 }
 

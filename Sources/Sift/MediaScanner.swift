@@ -85,20 +85,24 @@ final class MediaScanner {
     private func processFile(url: URL) async -> MediaItem? {
         let isVideo = SupportedFormats.isVideo(url)
         let captureDate: Date
+        let aspectRatio: CGFloat
 
         if isVideo {
             captureDate = await videoCreationDate(url: url) ?? fileModDate(url: url)
+            aspectRatio = await videoAspectRatio(url: url)
         } else {
-            captureDate = exifDate(url: url) ?? fileModDate(url: url)
+            let source = CGImageSourceCreateWithURL(url as CFURL, nil)
+            captureDate = exifDate(source: source) ?? fileModDate(url: url)
+            aspectRatio = imageAspectRatio(source: source)
         }
 
         let relativePath = relativeID(for: url)
-        return MediaItem(url: url, captureDate: captureDate, isVideo: isVideo, id: relativePath)
+        return MediaItem(url: url, captureDate: captureDate, isVideo: isVideo, id: relativePath, aspectRatio: aspectRatio)
     }
 
-    /// Extract EXIF DateTimeOriginal
-    private func exifDate(url: URL) -> Date? {
-        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
+    /// Extract EXIF DateTimeOriginal from an already-created CGImageSource
+    private func exifDate(source: CGImageSource?) -> Date? {
+        guard let source = source else { return nil }
         guard let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any] else { return nil }
         guard let exif = properties[kCGImagePropertyExifDictionary] as? [CFString: Any] else { return nil }
         guard let dateString = exif[kCGImagePropertyExifDateTimeOriginal] as? String else { return nil }
@@ -106,6 +110,35 @@ final class MediaScanner {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy:MM:dd HH:mm:ss"
         return formatter.date(from: dateString)
+    }
+
+    /// Extract aspect ratio from image pixel dimensions (EXIF only, no decode)
+    private func imageAspectRatio(source: CGImageSource?) -> CGFloat {
+        guard let source = source,
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let width = properties[kCGImagePropertyPixelWidth] as? CGFloat,
+              let height = properties[kCGImagePropertyPixelHeight] as? CGFloat,
+              height > 0
+        else { return 1.0 }
+
+        // Account for EXIF orientation — values 5-8 swap width/height
+        let orientation = properties[kCGImagePropertyOrientation] as? Int ?? 1
+        if orientation >= 5 && orientation <= 8 {
+            return height / width
+        }
+        return width / height
+    }
+
+    /// Extract aspect ratio from video track natural size
+    private func videoAspectRatio(url: URL) async -> CGFloat {
+        let asset = AVAsset(url: url)
+        guard let track = try? await asset.loadTracks(withMediaType: .video).first else { return 1.0 }
+        let size = try? await track.load(.naturalSize)
+        guard let size = size, size.height > 0 else { return 1.0 }
+        // Apply preferred transform to handle rotated videos
+        let transform = (try? await track.load(.preferredTransform)) ?? .identity
+        let transformedSize = CGSize(width: size.width, height: size.height).applying(transform)
+        return abs(transformedSize.width) / abs(transformedSize.height)
     }
 
     /// Extract video creation date from metadata
