@@ -1,2 +1,6 @@
 /thailand_2026
 /.build
+/Sift.app
+.DS_Store
+.swiftpm/
+.sift_session.json

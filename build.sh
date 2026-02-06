@@ -11,5 +11,5 @@ mkdir -p Sift.app/Contents/MacOS
 cp .build/release/Sift Sift.app/Contents/MacOS/Sift
 
 echo "Done! Run with:"
-echo "  open Sift.app --args ~/work/sift/thailand_2026"
+echo "  open Sift.app --args ~/Pictures/vacation"
 echo "  # or double-click Sift.app in Finder"
