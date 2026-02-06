@@ -8,7 +8,8 @@ Rejected files are moved to a `_rejected/` subfolder — nothing is ever deleted
 
 **Homebrew:**
 ```
-brew install --cask sift-app
+brew tap zodwick/tap
+brew install sift
 ```
 
 **Build from source (macOS 14+, Swift 5.9+):**
