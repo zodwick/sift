@@ -3,35 +3,99 @@ import SwiftUI
 struct FilmstripView: View {
     let engine: TriageEngine
 
-    var body: some View {
-        ScrollViewReader { proxy in
-            ScrollView(.horizontal) {
-                LazyHStack(spacing: 4) {
-                    ForEach(Array(engine.items.enumerated()), id: \.element.id) { index, item in
-                        ThumbnailCell(
-                            item: item,
-                            isSelected: index == engine.currentIndex
-                        )
-                        .id(index)
-                        .onTapGesture {
-                            engine.goTo(index: index)
-                        }
-                    }
-                }
-                .padding(.horizontal, 8)
-            }
-            .scrollIndicators(.hidden)
-            .frame(height: 110)
-            .background(Color(nsColor: NSColor(red: 0.08, green: 0.08, blue: 0.08, alpha: 1)))
-            .onChange(of: engine.currentIndex) { _, newIndex in
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    proxy.scrollTo(newIndex, anchor: .center)
-                }
-            }
-            .onAppear {
-                proxy.scrollTo(engine.currentIndex, anchor: .center)
+    private var filter: GalleryFilter { engine.activeFilter }
+
+    private var filteredItems: [(index: Int, item: MediaItem)] {
+        engine.items.enumerated().compactMap { index, item in
+            switch filter {
+            case .all:
+                return (index, item)
+            case .undecided:
+                return item.decision == .undecided ? (index, item) : nil
+            case .kept:
+                return item.decision == .kept ? (index, item) : nil
+            case .rejected:
+                return item.decision == .rejected ? (index, item) : nil
             }
         }
+    }
+
+    private func filterCount(_ f: GalleryFilter) -> Int {
+        switch f {
+        case .all: return engine.totalCount
+        case .undecided: return engine.remainingCount
+        case .kept: return engine.keptCount
+        case .rejected: return engine.rejectedCount
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            filterBar
+            ScrollViewReader { proxy in
+                ScrollView(.horizontal) {
+                    LazyHStack(spacing: 4) {
+                        ForEach(filteredItems, id: \.item.id) { index, item in
+                            ThumbnailCell(
+                                item: item,
+                                isSelected: index == engine.currentIndex
+                            )
+                            .id(index)
+                            .onTapGesture {
+                                engine.goTo(index: index)
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 8)
+                }
+                .scrollIndicators(.hidden)
+                .frame(height: 110)
+                .background(Color(nsColor: NSColor(red: 0.08, green: 0.08, blue: 0.08, alpha: 1)))
+                .onChange(of: engine.currentIndex) { _, newIndex in
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        proxy.scrollTo(newIndex, anchor: .center)
+                    }
+                }
+                .onAppear {
+                    proxy.scrollTo(engine.currentIndex, anchor: .center)
+                }
+            }
+        }
+    }
+
+    // MARK: - Filter Bar
+
+    private var filterBar: some View {
+        HStack(spacing: 8) {
+            ForEach(Array(GalleryFilter.allCases.enumerated()), id: \.offset) { idx, f in
+                filterPill(f)
+            }
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 4)
+        .background(Color(nsColor: NSColor(red: 0.08, green: 0.08, blue: 0.08, alpha: 1)))
+    }
+
+    private func filterPill(_ f: GalleryFilter) -> some View {
+        let isActive = filter == f
+        let count = filterCount(f)
+
+        return Button {
+            engine.activeFilter = f
+        } label: {
+            Text("\(f.label) (\(count))")
+                .font(.system(.caption2, design: .monospaced))
+                .foregroundStyle(isActive ? .white : .secondary)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(isActive ? Color.white.opacity(0.15) : Color.clear)
+                .clipShape(.capsule)
+                .overlay(
+                    Capsule().stroke(isActive ? Color.white.opacity(0.3) : Color.white.opacity(0.1), lineWidth: 1)
+                )
+        }
+        .buttonStyle(.plain)
     }
 }
 

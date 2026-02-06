@@ -9,6 +9,7 @@ final class TriageEngine {
     var currentIndex: Int = 0
     var isLoading = true
     var scanProgress: MediaScanner.ScanProgress?
+    var activeFilter: GalleryFilter = .all
 
     // Cached counts — maintained incrementally instead of filtering 3600 items per render
     private(set) var keptCount: Int = 0
@@ -61,17 +62,50 @@ final class TriageEngine {
     // MARK: - Navigation
 
     func goToNext() {
-        guard currentIndex < items.count - 1 else { return }
-        currentIndex += 1
+        if activeFilter == .all {
+            guard currentIndex < items.count - 1 else { return }
+            currentIndex += 1
+        } else {
+            guard let next = nextMatchingIndex(after: currentIndex) else { return }
+            currentIndex = next
+        }
         sessionStore.currentPosition = currentIndex
         prefetchAdjacent()
     }
 
     func goToPrevious() {
-        guard currentIndex > 0 else { return }
-        currentIndex -= 1
+        if activeFilter == .all {
+            guard currentIndex > 0 else { return }
+            currentIndex -= 1
+        } else {
+            guard let prev = previousMatchingIndex(before: currentIndex) else { return }
+            currentIndex = prev
+        }
         sessionStore.currentPosition = currentIndex
         prefetchAdjacent()
+    }
+
+    private func matchesFilter(_ item: MediaItem) -> Bool {
+        switch activeFilter {
+        case .all: return true
+        case .undecided: return item.decision == .undecided
+        case .kept: return item.decision == .kept
+        case .rejected: return item.decision == .rejected
+        }
+    }
+
+    private func nextMatchingIndex(after index: Int) -> Int? {
+        for i in (index + 1)..<items.count {
+            if matchesFilter(items[i]) { return i }
+        }
+        return nil
+    }
+
+    private func previousMatchingIndex(before index: Int) -> Int? {
+        for i in stride(from: index - 1, through: 0, by: -1) {
+            if matchesFilter(items[i]) { return i }
+        }
+        return nil
     }
 
     func goTo(index: Int) {
