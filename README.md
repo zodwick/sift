@@ -7,30 +7,35 @@ Rejected files are moved to a `_rejected/` subfolder — nothing is ever deleted
 ## Install
 
 **Homebrew:**
-```
+```bash
 brew tap zodwick/tap
 brew install sift-photos
 
 # Add to Spotlight & Launchpad:
-mkdir -p ~/Applications && ln -sf $(brew --prefix)/opt/sift-photos/Sift.app ~/Applications/Sift.app
+cp -R $(brew --prefix)/opt/sift-photos/Sift.app ~/Applications/
+open ~/Applications/Sift.app
 ```
 
 **Build from source (macOS 14+, Swift 5.9+):**
 ```bash
-git clone https://github.com/yourusername/sift.git
+git clone https://github.com/zodwick/sift.git
 cd sift
 ./build.sh
-open Sift.app
+cp -R Sift.app ~/Applications/
+open ~/Applications/Sift.app
 ```
 
 ## Usage
 
 ```bash
 # Open a folder directly
-open Sift.app --args ~/Pictures/vacation
+open ~/Applications/Sift.app --args ~/Pictures/vacation
 
 # Or launch and pick a folder
-open Sift.app
+open ~/Applications/Sift.app
+
+# Or use the CLI (Homebrew only)
+sift-photos ~/Pictures/vacation
 ```
 
 ## Keyboard Shortcuts
