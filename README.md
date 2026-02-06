@@ -9,7 +9,10 @@ Rejected files are moved to a `_rejected/` subfolder — nothing is ever deleted
 **Homebrew:**
 ```
 brew tap zodwick/tap
-brew install sift
+brew install sift-photos
+
+# Add to Spotlight & Launchpad:
+mkdir -p ~/Applications && ln -sf $(brew --prefix)/opt/sift-photos/Sift.app ~/Applications/Sift.app
 ```
 
 **Build from source (macOS 14+, Swift 5.9+):**
