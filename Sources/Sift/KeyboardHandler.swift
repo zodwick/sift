@@ -7,7 +7,6 @@ struct KeyboardHandler: NSViewRepresentable {
     @Binding var isPlaying: Bool
     @Binding var showHelp: Bool
     @Binding var viewMode: ViewMode
-    @Binding var galleryFilter: GalleryFilter
 
     func makeNSView(context: Context) -> KeyCaptureView {
         let view = KeyCaptureView()
@@ -40,7 +39,12 @@ struct KeyboardHandler: NSViewRepresentable {
             engine.goToNext()
             return
         case 36: // Enter/Return
-            if viewMode == .triage { toggleVideoPlayback() }
+            engine.keepCurrent()
+            isPlaying = false
+            return
+        case 51: // Delete (backspace)
+            engine.rejectCurrent()
+            isPlaying = false
             return
         case 49: // Space
             if viewMode == .triage { toggleVideoPlayback() }
@@ -71,16 +75,16 @@ struct KeyboardHandler: NSViewRepresentable {
         case "?":
             showHelp.toggle()
         case "1":
-            if viewMode == .gallery { galleryFilter = .all }
+            if viewMode == .gallery { engine.activeFilter = .all }
             else { engine.setRating(1) }
         case "2":
-            if viewMode == .gallery { galleryFilter = .undecided }
+            if viewMode == .gallery { engine.activeFilter = .undecided }
             else { engine.setRating(2) }
         case "3":
-            if viewMode == .gallery { galleryFilter = .kept }
+            if viewMode == .gallery { engine.activeFilter = .kept }
             else { engine.setRating(3) }
         case "4":
-            if viewMode == .gallery { galleryFilter = .rejected }
+            if viewMode == .gallery { engine.activeFilter = .rejected }
             else { engine.setRating(4) }
         case "5":
             engine.setRating(5)
@@ -117,7 +121,7 @@ class KeyCaptureView: NSView {
         if let char = chars.first, handled.contains(char) {
             return true
         }
-        if [36, 49, 123, 124].contains(event.keyCode) {
+        if [36, 49, 51, 123, 124].contains(event.keyCode) {
             return true
         }
         return super.performKeyEquivalent(with: event)

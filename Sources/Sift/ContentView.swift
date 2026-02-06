@@ -6,7 +6,6 @@ struct ContentView: View {
     @State private var isPlaying = false
     @State private var showHelp = false
     @State private var viewMode: ViewMode = .triage
-    @State private var galleryFilter: GalleryFilter = .all
 
     var body: some View {
         ZStack {
@@ -33,8 +32,7 @@ struct ContentView: View {
             isZoomed: $isZoomed,
             isPlaying: $isPlaying,
             showHelp: $showHelp,
-            viewMode: $viewMode,
-            galleryFilter: $galleryFilter
+            viewMode: $viewMode
         ))
     }
 
@@ -190,7 +188,7 @@ struct ContentView: View {
     private var galleryContainerView: some View {
         VStack(spacing: 0) {
             topBar
-            GalleryView(engine: engine, filter: $galleryFilter) { index in
+            GalleryView(engine: engine) { index in
                 engine.goTo(index: index)
                 viewMode = .triage
             }
@@ -214,11 +212,11 @@ struct ContentView: View {
                 Group {
                     shortcutRow("h / Left", "Previous photo")
                     shortcutRow("l / Right", "Next photo")
-                    shortcutRow("k", "Keep (mark kept, advance)")
-                    shortcutRow("j", "Reject (move to _rejected/, advance)")
+                    shortcutRow("k / Enter", "Keep (mark kept, advance)")
+                    shortcutRow("j / Delete", "Reject (move to _rejected/, advance)")
                     shortcutRow("z", "Undo last action")
                     shortcutRow("1-5", "Star rating (triage) / filter (gallery)")
-                    shortcutRow("Space / Enter", "Play/pause video")
+                    shortcutRow("Space", "Play/pause video")
                     shortcutRow("f", "Toggle zoom (fit vs full)")
                     shortcutRow("g", "Toggle gallery / triage view")
                     shortcutRow("?", "Show/hide this help")

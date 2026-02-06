@@ -2,8 +2,9 @@ import SwiftUI
 
 struct GalleryView: View {
     let engine: TriageEngine
-    @Binding var filter: GalleryFilter
     let onSelectItem: (Int) -> Void
+
+    private var filter: GalleryFilter { engine.activeFilter }
 
     private var filteredItems: [(index: Int, item: MediaItem)] {
         engine.items.enumerated().compactMap { index, item in
@@ -59,7 +60,7 @@ struct GalleryView: View {
         let count = filterCount(f)
 
         return Button {
-            filter = f
+            engine.activeFilter = f
         } label: {
             Text("\(f.label) (\(count))")
                 .font(.system(.caption, design: .monospaced))

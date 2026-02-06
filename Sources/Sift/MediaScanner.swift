@@ -154,12 +154,16 @@ final class MediaScanner {
         return values?.contentModificationDate ?? Date.distantPast
     }
 
-    /// Create a stable ID from relative path
+    /// Create a stable ID from relative path (strips _rejected/ so IDs stay consistent after moves)
     func relativeID(for url: URL) -> String {
         let rootPath = rootURL.path
         let filePath = url.path
         if filePath.hasPrefix(rootPath) {
-            return String(filePath.dropFirst(rootPath.count + 1))
+            var relative = String(filePath.dropFirst(rootPath.count + 1))
+            if relative.hasPrefix("_rejected/") {
+                relative = String(relative.dropFirst("_rejected/".count))
+            }
+            return relative
         }
         return url.lastPathComponent
     }
