@@ -6,6 +6,8 @@ struct ContentView: View {
     @State private var isPlaying = false
     @State private var showHelp = false
     @State private var viewMode: ViewMode = .triage
+    @AppStorage("sift.hasSeenWelcome") private var hasSeenWelcome = false
+    @AppStorage("sift.hasUsedHelp") private var hasUsedHelp = false
 
     var body: some View {
         ZStack {
@@ -25,6 +27,10 @@ struct ContentView: View {
             if showHelp {
                 helpOverlay
             }
+
+            if !hasSeenWelcome && !engine.isLoading && !engine.items.isEmpty {
+                welcomeOverlay
+            }
         }
         .frame(minWidth: 900, minHeight: 600)
         .background(KeyboardHandler(
@@ -32,7 +38,9 @@ struct ContentView: View {
             isZoomed: $isZoomed,
             isPlaying: $isPlaying,
             showHelp: $showHelp,
-            viewMode: $viewMode
+            viewMode: $viewMode,
+            hasSeenWelcome: $hasSeenWelcome,
+            hasUsedHelp: $hasUsedHelp
         ))
     }
 
@@ -130,6 +138,13 @@ struct ContentView: View {
 
             // Progress counter
             progressCounter
+
+            if !hasUsedHelp {
+                Text("Press ? for shortcuts")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.leading, 8)
+            }
 
             // View mode indicator
             viewModeIndicator
@@ -230,6 +245,36 @@ struct ContentView: View {
             .padding(32)
             .background(Color(white: 0.15))
             .clipShape(.rect(cornerRadius: 12))
+        }
+    }
+
+    // MARK: - Welcome Overlay
+
+    private var welcomeOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.7)
+                .ignoresSafeArea()
+
+            VStack(spacing: 20) {
+                Text("Welcome to Sift")
+                    .font(.title.bold())
+                    .foregroundStyle(.white)
+
+                VStack(alignment: .leading, spacing: 10) {
+                    shortcutRow("k / Enter", "Keep photo")
+                    shortcutRow("j / Delete", "Reject photo")
+                    shortcutRow("h / l  or  \u{2190} \u{2192}", "Navigate")
+                    shortcutRow("?", "All shortcuts")
+                }
+
+                Text("Press any key to start")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 8)
+            }
+            .padding(40)
+            .background(Color(white: 0.2))
+            .clipShape(.rect(cornerRadius: 16))
         }
     }
 

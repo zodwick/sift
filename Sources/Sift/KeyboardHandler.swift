@@ -7,6 +7,8 @@ struct KeyboardHandler: NSViewRepresentable {
     @Binding var isPlaying: Bool
     @Binding var showHelp: Bool
     @Binding var viewMode: ViewMode
+    @Binding var hasSeenWelcome: Bool
+    @Binding var hasUsedHelp: Bool
 
     func makeNSView(context: Context) -> KeyCaptureView {
         let view = KeyCaptureView()
@@ -23,6 +25,12 @@ struct KeyboardHandler: NSViewRepresentable {
     }
 
     private func handleKey(_ event: NSEvent) {
+        // Dismiss welcome overlay on any key
+        if !hasSeenWelcome {
+            hasSeenWelcome = true
+            return
+        }
+
         // Dismiss help on any key
         if showHelp {
             showHelp = false
@@ -74,6 +82,7 @@ struct KeyboardHandler: NSViewRepresentable {
             if viewMode == .triage { isZoomed.toggle() }
         case "?":
             showHelp.toggle()
+            hasUsedHelp = true
         case "1":
             if viewMode == .gallery { engine.activeFilter = .all }
             else { engine.setRating(1) }
